@@ -112,4 +112,3 @@ async def verify_token_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(f"❌ The address {address} is NOT registered.")
     await update.message.reply_text("What would you like to do?", reply_markup=markup)
     return CHOOSING
-            
