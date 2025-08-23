@@ -12,6 +12,7 @@ import dotenv
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from pumpportal import create_wallet
+import requests
 
 WALLET_MENU = 10 
 ENCRYPTED_KEYS_FILE = "encrypted_keys.json"
@@ -19,8 +20,9 @@ ENCRYPTED_KEYS_FILE = "encrypted_keys.json"
 def get_balance(pubkey, rpc_url="https://api.mainnet-beta.solana.com"):
     client = Client(rpc_url)
     resp = client.get_balance(pubkey)
-    if resp.get("result"):
-        return resp["result"]["value"] / 1e9  # SOL
+    # resp.value is in lamports, convert to SOL
+    if hasattr(resp, "value"):
+        return resp.value / 1e9  # SOL
     return None
 
 wallet_keyboard = [
@@ -49,6 +51,15 @@ def save_encrypted_key_for_user(telegram_user_id: str, encrypted_privkey: str):
     with open(ENCRYPTED_KEYS_FILE, "w") as f:
         json.dump(data, f)
 
+def get_sol_price():
+    """Returns the current price of SOL in USD (float)."""
+    try:
+        resp = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", timeout=5)
+        data = resp.json()
+        return float(data["solana"]["usd"])
+    except Exception:
+        return None
+
 async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = str(update.message.text)
     
@@ -63,8 +74,8 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         preview = privkey_base58[:4] + "..." + privkey_base58[-4:]
         await update.message.reply_text(
             f"✅ Wallet created\\!\n\n"
-            f"Public address :\n`{pubkey.replace('.', '\\.')}`\n\n"
-            f"Phantom private key \\(base58\\) :\n||{privkey_base58.replace('.', '\\.')}||\n\n"
+            f"Public address:\n`{pubkey.replace('.', '\\.')}`\n\n"
+            f"Phantom private key \\(base58\\):\n||{privkey_base58.replace('.', '\\.')}||\nPreview: `{preview}`\n\n"
             f"⚠️ Save your private key\\! It gives access to your funds on Phantom\\. Never share it\\.",
             parse_mode="MarkdownV2"
         )
@@ -78,12 +89,8 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return WALLET_MENU
     elif text == "Deposit":
-        await update.message.reply_text("Deposit function coming soon.")
-    elif text == "Withdraw":
-        await update.message.reply_text("Withdraw function coming soon.")
-    elif text == "Balance":
         telegram_user_id = str(update.effective_user.id)
-        # Charger les clés chiffrées
+        # Load encrypted keys
         if os.path.exists(ENCRYPTED_KEYS_FILE):
             with open(ENCRYPTED_KEYS_FILE, "r") as f:
                 encrypted_keys = json.load(f)
@@ -93,17 +100,70 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         key = derive_key("", salt)
         encrypted_privkey = encrypted_keys.get(telegram_user_id)
         if not encrypted_privkey:
-            await update.message.reply_text("Aucune clé enregistrée pour votre compte Telegram.")
+            await update.message.reply_text("No key found for your Telegram account.")
+        else:
+            try:
+                privkey_base58 = decrypt_privkey(encrypted_privkey, key)
+                keypair = Keypair.from_base58_string(privkey_base58)
+                pubkey = str(keypair.pubkey())
+                sol_balance = get_balance(pubkey)
+                sol_price = get_sol_price()
+                msg = f"Deposit address:\n`{pubkey}`\n"
+                if sol_balance is not None and sol_price is not None:
+                    dollar_estimate = sol_balance * sol_price
+                    msg += f"\nCurrent balance: {sol_balance} SOL (${dollar_estimate:.2f})"
+                elif sol_balance is not None:
+                    msg += f"\nCurrent balance: {sol_balance} SOL"
+                else:
+                    msg += "\nUnable to fetch balance."
+                await update.message.reply_text(msg, parse_mode="Markdown")
+            except Exception as e:
+                await update.message.reply_text(f"Error decrypting your key: {e}")
+        await update.message.reply_text(
+            "Wallet options:\nPlease choose an action below.",
+            reply_markup=wallet_markup
+        )
+        return WALLET_MENU
+    elif text == "Withdraw":
+        await update.message.reply_text("Withdraw function coming soon.")
+    elif text == "Balance":
+        telegram_user_id = str(update.effective_user.id)
+        # Load encrypted keys
+        if os.path.exists(ENCRYPTED_KEYS_FILE):
+            with open(ENCRYPTED_KEYS_FILE, "r") as f:
+                encrypted_keys = json.load(f)
+        else:
+            encrypted_keys = {}
+        salt = load_salt()
+        key = derive_key("", salt)
+        encrypted_privkey = encrypted_keys.get(telegram_user_id)
+        if not encrypted_privkey:
+            await update.message.reply_text("No key found for your Telegram account.")
         else:
             try:
                 privkey_base58 = decrypt_privkey(encrypted_privkey, key)
                 keypair = Keypair.from_base58_string(privkey_base58)
                 await update.message.reply_text(
-                    f"Votre adresse publique : `{keypair.pubkey()}`",
+                    f"Your public address: `{keypair.pubkey()}`",
                     parse_mode="Markdown"
                 )
+                sol_balance = get_balance(keypair.pubkey())
+                sol_price = get_sol_price()
+                if sol_balance is not None and sol_price is not None:
+                    dollar_estimate = sol_balance * sol_price
+                    await update.message.reply_text(
+                        f"Sol balance: {sol_balance} SOL\nEstimated value: ${dollar_estimate:.2f}",
+                        parse_mode="Markdown"
+                    )
+                elif sol_balance is not None:
+                    await update.message.reply_text(
+                        f"Sol balance: {sol_balance} SOL",
+                        parse_mode="Markdown"
+                    )
+                else:
+                    await update.message.reply_text("Unable to fetch balance.", parse_mode="Markdown")
             except Exception as e:
-                await update.message.reply_text(f"Erreur lors du déchiffrement de votre clé : {e}")
+                await update.message.reply_text(f"Error decrypting your key: {e}")
         await update.message.reply_text(
             "Wallet options:\nPlease choose an action below.",
             reply_markup=wallet_markup
@@ -119,19 +179,7 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return WALLET_MENU
 
-async def wallet_balance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pubkey = update.message.text.strip()
-    balance = get_balance(pubkey)
-    if balance is not None:
-        await update.message.reply_text(f"Balance for `{pubkey}`: {balance} SOL", parse_mode="Markdown")
-    else:
-        await update.message.reply_text("Unable to fetch balance. Please check your public key.")
-    await update.message.reply_text(
-        "Wallet options:\nPlease choose an action below.",
-        reply_markup=wallet_markup
-    )
-    return WALLET_MENU
-
+ 
 def generate_encryption_key():
     """Génère une clé de chiffrement Fernet (à stocker de façon sécurisée)."""
     return Fernet.generate_key()
