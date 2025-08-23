@@ -13,9 +13,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from pumpportal import create_wallet
 import requests
-from solders.pubkey import Pubkey
-from solders.system_program import transfer, TransferParams
-from solders.transaction import Transaction
 
 WALLET_MENU = 10 
 WAIT_WITHDRAW_ADDRESS = 11
@@ -254,21 +251,12 @@ def save_encrypted_key(pubkey: str, encrypted_privkey: str):
     with open(ENCRYPTED_KEYS_FILE, "w") as f:
         json.dump(data, f)
 
-def is_valid_solana_address(address: str):
-    try:
-        Pubkey.from_string(address)
-        return True
-    except Exception:
-        return False
-
 # Handler for the next step after user enters the withdraw address
 async def wallet_withdraw_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    dest_address = update.message.text.strip()
+    # You can add address validation here if needed
     await update.message.reply_text(
-        "How to withdraw your funds:\n\n"
-        "1. Download the Phantom wallet (browser extension or mobile app).\n"
-        "2. Import your private key (base58) shown when you created your wallet.\n"
-        "3. Make your transaction directly from Phantom.\n\n"
-        "Soon: Full withdrawal feature directly from the bot!",
+        f"Received destination address: `{dest_address}`.\nWithdrawal feature coming soon.",
         parse_mode="Markdown"
     )
     await update.message.reply_text(
@@ -276,11 +264,3 @@ async def wallet_withdraw_handler(update: Update, context: ContextTypes.DEFAULT_
         reply_markup=wallet_markup
     )
     return WALLET_MENU
-     
-
-
-
-
-
-
-
