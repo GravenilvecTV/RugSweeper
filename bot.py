@@ -27,13 +27,7 @@ def start_pumpportal_thread():
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
-    # Handler /start uniquement en privé
-    application.add_handler(CommandHandler(
-        "start",
-        start,
-        filters=filters.ChatType.PRIVATE
-    ))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, choice_handler))
+ 
     # ConversationHandler pour la gestion des étapes
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start, filters=filters.ChatType.PRIVATE)],
@@ -43,9 +37,10 @@ def main():
             ADD_PUMPFUN: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_pumpfun)],
             VERIFY_TOKEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, verify_token_handler)],
         },
-        fallbacks=[],
+        fallbacks=[CommandHandler("start", start, filters=filters.ChatType.PRIVATE)],
     )
     application.add_handler(conv_handler)
+
     start_pumpportal_thread()
     application.run_polling()
 
