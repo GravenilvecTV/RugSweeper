@@ -40,7 +40,7 @@ async def add_rug(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = load_addresses()
         count = data[address]["count"]
         await update.message.reply_text(
-            f"Rug address already exists. Counter incremented.\nThis address has been reported {count} time{'s' if count > 1 else ''}."
+            f"Rugger address already exists. Counter incremented.\nThis address has been reported {count} time{'s' if count > 1 else ''}."
         )
         await update.message.reply_text("What would you like to do?", reply_markup=markup)
         return CHOOSING

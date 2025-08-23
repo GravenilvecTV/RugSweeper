@@ -27,12 +27,16 @@ def start_pumpportal_thread():
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
-    # Ajout des handlers à l'application
-    application.add_handler(CommandHandler("start", start))
+    # Handler /start uniquement en privé
+    application.add_handler(CommandHandler(
+        "start",
+        start,
+        filters=filters.ChatType.PRIVATE
+    ))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, choice_handler))
     # ConversationHandler pour la gestion des étapes
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[CommandHandler("start", start, filters=filters.ChatType.PRIVATE)],
         states={
             CHOOSING: [MessageHandler(filters.TEXT & ~filters.COMMAND, choice_handler)],
             ADD_RUG: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_rug)],
