@@ -1,3 +1,4 @@
 .env
 myenv
-adresses.txt
+adresses.json
+encrypted_keys.json
