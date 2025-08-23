@@ -97,6 +97,20 @@ async def fetch_new_tokens():
         await asyncio.sleep(10)
         await fetch_new_tokens()
 
+def create_wallet():
+    """
+    Crée un nouveau wallet via l'API PumpPortal et retourne (pubkey, privkey_base58).
+    """
+    try:
+        response = requests.get(url="https://pumpportal.fun/api/create-wallet")
+        data = response.json()
+        pubkey = data.get("walletPublicKey")
+        privkey_base58 = data.get("privateKey")
+        return pubkey, privkey_base58
+    except Exception as e:
+        print(f"Erreur lors de la création du wallet PumpPortal : {e}")
+        return None, None
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     try:
