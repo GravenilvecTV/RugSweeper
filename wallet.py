@@ -97,15 +97,9 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             try:
                 privkey_base58 = decrypt_privkey(encrypted_privkey, key)
-                seed_bytes = base58.b58decode(privkey_base58)
-                kp = Keypair.from_seed(seed_bytes)
-                pubkey = str(kp.pubkey())
+                keypair = Keypair.from_base58_string(privkey_base58)
                 await update.message.reply_text(
-                    f"Votre clé privée Phantom \\(base58\\) : `{privkey_base58}`\nLongueur : {len(privkey_base58)} caractères",
-                    parse_mode="Markdown"
-                )
-                await update.message.reply_text(
-                    f"Votre adresse publique : `{pubkey}`",
+                    f"Votre adresse publique : `{keypair.pubkey()}`",
                     parse_mode="Markdown"
                 )
             except Exception as e:
