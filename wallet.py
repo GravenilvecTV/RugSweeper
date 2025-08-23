@@ -105,18 +105,25 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
             try:
                 privkey_base58 = decrypt_privkey(encrypted_privkey, key)
                 keypair = Keypair.from_base58_string(privkey_base58)
-                pubkey = str(keypair.pubkey())
-                sol_balance = get_balance(pubkey)
+                await update.message.reply_text(
+                    f"Your public address: `{keypair.pubkey()}`",
+                    parse_mode="Markdown"
+                )
+                sol_balance = get_balance(keypair.pubkey())
                 sol_price = get_sol_price()
-                msg = f"Deposit address:\n`{pubkey}`\n"
                 if sol_balance is not None and sol_price is not None:
                     dollar_estimate = sol_balance * sol_price
-                    msg += f"\nCurrent balance: {sol_balance} SOL (${dollar_estimate:.2f})"
+                    await update.message.reply_text(
+                        f"Sol balance: {sol_balance} SOL\nEstimated value: ${dollar_estimate:.2f}",
+                        parse_mode="Markdown"
+                    )
                 elif sol_balance is not None:
-                    msg += f"\nCurrent balance: {sol_balance} SOL"
+                    await update.message.reply_text(
+                        f"Sol balance: {sol_balance} SOL",
+                        parse_mode="Markdown"
+                    )
                 else:
-                    msg += "\nUnable to fetch balance."
-                await update.message.reply_text(msg, parse_mode="Markdown")
+                    await update.message.reply_text("Unable to fetch balance.", parse_mode="Markdown")
             except Exception as e:
                 await update.message.reply_text(f"Error decrypting your key: {e}")
         await update.message.reply_text(
