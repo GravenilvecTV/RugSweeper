@@ -165,14 +165,10 @@ async def sweep_callback_handler(update, context):
         )
         print(f"[DEBUG] Sweep request: user={update.effective_user.id}, contract={contract_address}, amount={amount}")
         telegram_channel_id = os.getenv("TELEGRAM_CHANNEL_ID")
-        await context.application.bot.send_message(
-            chat_id=telegram_channel_id,
-            text=msg,
-            parse_mode="Markdown"
-        )
+ 
         await context.application.bot.send_message(
             chat_id=update.effective_user.id,
-            text="Your sweep request has been sent to the channel.",
+            text=msg,
             parse_mode="Markdown"
         )
     except Exception as e:
