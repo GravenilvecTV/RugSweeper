@@ -145,7 +145,11 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return WALLET_MENU
     elif text == "Withdraw":
         await update.message.reply_text(
-            "Withdrawal feature coming soon!",
+            "To withdraw your funds, please follow the instructions below:\n"
+            "1. Download Phantom wallet\n"
+            "2. Import your secret private key created earlier\n"
+            "3. You have full access to your wallet\n"
+            "We will add a feature to withdraw directly from the bot soon",
             reply_markup=wallet_markup
         )
         return WALLET_MENU

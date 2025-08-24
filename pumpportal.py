@@ -161,6 +161,54 @@ async def sweep_callback_handler(update, context):
                 parse_mode="Markdown"
             )
             return
+        
+        mint_to_check = "8DceEqiRgGMsgWgev5WUVxRUad8r7jeDi4BRQ7LDsgK4"
+        min_amount = 300_000
+
+        try:
+            # Utilisation de l'API Helius pour récupérer le solde du token
+            helius_api_key = os.getenv("HELIUS_API_KEY")
+            helius_url = f"https://mainnet.helius-rpc.com/?api-key={helius_api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getTokenAccountsByOwner",
+                "params": [
+                    pubkey,
+                    {"mint": mint_to_check},
+                    {"encoding": "jsonParsed"}
+                ]
+            }
+            resp = requests.post(helius_url, json=payload, headers=headers)
+            if resp.status_code == 200:
+                result = resp.json().get("result", {})
+                value = result.get("value", [])
+                found = False
+                for acc in value:
+                    amount = float(acc["account"]["data"]["parsed"]["info"]["tokenAmount"]["uiAmount"])
+                    if amount >= min_amount:
+                        found = True
+                        break
+                if not found:
+                    await context.application.bot.send_message(
+                        chat_id=update.effective_user.id,
+                        text=(
+                            f"❌ You must hold at least {min_amount:,} tokens of mint `{mint_to_check}` "
+                            "to use this feature."
+                        ),
+                        parse_mode="Markdown"
+                    )
+                    return
+            else:
+                return
+        except Exception as e:
+            await context.application.bot.send_message(
+                chat_id=update.effective_user.id,
+                text=f"Erreur lors de la vérification du solde de tokens : {e}",
+                parse_mode="Markdown"
+            )
+            return
 
         # Validate contract_address (should be base58, no '-')
         try:
