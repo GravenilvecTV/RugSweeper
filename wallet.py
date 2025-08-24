@@ -92,7 +92,7 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(
             f"✅ Wallet created\\!\n\n"
             f"Public address:\n`{pubkey.replace('.', '\\.')}`\n\n"
-            f"Phantom private key \\(base58\\):\n||{privkey_base58.replace('.', '\\.')}||\nPreview: `{preview}`\n\n"
+            f"Phantom private key \\(base58\\):\n||{privkey_base58.replace('.', '\\.')}||\n\n"
             f"⚠️ Save your private key\\! It gives access to your funds on Phantom\\. Never share it\\.",
             parse_mode="MarkdownV2"
         )
