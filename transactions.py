@@ -17,15 +17,16 @@ def buy_token(pubKey, mint, keypair, amount, slippage=10, priorityFee=0.001, poo
     Achète un token via PumpPortal
     
     Args:
+        pubKey (str): L'adresse publique du wallet
         mint (str): L'adresse du contrat du token à acheter
-        amount (int): Le montant à acheter (en SOL ou en tokens selon denominatedInSol)
-        denominatedInSol (str): "true" si amount est en SOL, "false" si en nombre de tokens
+        keypair (Keypair or str): Clé privée du wallet (Keypair object ou base58 string)
+        amount (float): Le montant à acheter (en SOL)
         slippage (int): Le pourcentage de slippage autorisé
         priorityFee (float): Les frais de priorité à utiliser
         pool (str): L'exchange sur lequel trader ("pump", "raydium", "pump-amm", etc.)
     
     Returns:
-        str: L'URL de la transaction sur Solscan si succès, None si échec
+        tuple: (success: bool, message: str)
     """ 
  
     # Préparer les données pour l'API PumpPortal
@@ -41,57 +42,46 @@ def buy_token(pubKey, mint, keypair, amount, slippage=10, priorityFee=0.001, poo
     }
 
     print(trade_data)
-    
-    # Effectuer la requête à PumpPortal
+
     response = requests.post(url="https://pumpportal.fun/api/trade-local", data=trade_data)
-    
-    # Vérifier si la réponse est valide avant de traiter
+
     if response.status_code != 200:
         print(f"Erreur HTTP: {response.status_code}")
         print(f"Contenu de l'erreur: {response.text}")
-        return None
+        return False, f"Erreur HTTP: {response.status_code}"
 
-    # Vérifier si la réponse contient des données de transaction
     if len(response.content) == 0:
         print("Erreur: La réponse est vide")
-        return None
+        return False, "Erreur: La réponse est vide"
+
+    # keypair peut être un objet Keypair ou une string
+    if isinstance(keypair, Keypair):
+        kp = keypair
+    else:
+        kp = Keypair.from_base58_string(keypair)
 
     try:
-        # Correction: détecte si la clé est hexadécimale (longueur 128, uniquement chiffres/lettres a-f)
-        if len(keypair) == 128 and all(c in "0123456789abcdefABCDEF" for c in keypair):
-            keypair = Keypair.from_bytes(bytes.fromhex(keypair))
-        else:
-            keypair = Keypair.from_base58_string(keypair)
-        tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [keypair])
+        tx = VersionedTransaction(VersionedTransaction.from_bytes(response.content).message, [kp])
     except Exception as e:
         print(f"Erreur lors de la création de la transaction: {e}")
-        print(f"Taille du contenu: {len(response.content)} bytes")
-        # Essayer de décoder comme JSON pour voir s'il y a un message d'erreur
-        try:
-            json_response = response.json()
-            print(f"Réponse JSON: {json_response}")
-        except:
-            print("La réponse n'est pas un JSON valide")
-        return None
+        return False, f"Erreur lors de la création de la transaction: {e}"
 
     commitment = CommitmentLevel.Confirmed
     config = RpcSendTransactionConfig(preflight_commitment=commitment)
     txPayload = SendVersionedTransaction(tx, config)
 
-    # Envoyer la transaction signée au réseau Solana
     response = requests.post(
         url=rpc_url,
         headers={"Content-Type": "application/json"},
         data=SendVersionedTransaction(tx, config).to_json()
     )
-    
+
     try:
         txSignature = response.json()['result']
         transaction_url = f'https://solscan.io/tx/{txSignature}'
         print(f'Transaction: {transaction_url}')
-        return transaction_url
+        return True, transaction_url
     except Exception as e:
-        # Gestion explicite de AccountNotFound
         try:
             error_json = response.json()
             if (
@@ -100,12 +90,12 @@ def buy_token(pubKey, mint, keypair, amount, slippage=10, priorityFee=0.001, poo
             ):
                 msg = "Erreur : AccountNotFound. L'un des comptes nécessaires n'existe pas ou n'a jamais reçu de crédit."
                 print(msg)
-                return msg
+                return False, msg
         except Exception:
             pass
         print(f"Erreur lors de la récupération de la signature de transaction: {e} ")
         print(f"Réponse: {response.text}")
-        return None
+        return False, f"Erreur lors de la récupération de la signature de transaction: {e}"
 
 async def sell_token(pubKey, mint, keypair, slippage=20, priorityFee=0.001, pool="auto"):
     """

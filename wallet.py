@@ -145,13 +145,10 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return WALLET_MENU
     elif text == "Withdraw":
         await update.message.reply_text(
-            "How to withdraw your funds:\n\n"
-            "1. Download the Phantom wallet (browser extension or mobile app).\n"
-            "2. Import your private key (base58) shown when you created your wallet.\n"
-            "3. Make your transaction directly from Phantom.\n\n"
-            "Soon: Full withdrawal feature directly from the bot!",
-            parse_mode="Markdown"
+            "Withdrawal feature coming soon!",
+            reply_markup=wallet_markup
         )
+        return WALLET_MENU
     elif text == "Close":
         await update.message.reply_text("Wallet menu closed.")
         return ConversationHandler.END
@@ -237,6 +234,21 @@ def get_wallet_for_user(telegram_user_id: str):
         return pubkey, privkey_base58
     except Exception:
         return None, None
+
+async def wallet_withdraw_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "How to withdraw your funds:\n\n"
+        "1. Download the Phantom wallet (browser extension or mobile app).\n"
+        "2. Import your private key (base58) shown when you created your wallet.\n"
+        "3. Make your transaction directly from Phantom.\n\n"
+        "Soon: Full withdrawal feature directly from the bot!",
+        parse_mode="Markdown"
+    )
+    await update.message.reply_text(
+        "Wallet options:\nPlease choose an action below.",
+        reply_markup=wallet_markup
+    )
+    return WALLET_MENU
 
 
 

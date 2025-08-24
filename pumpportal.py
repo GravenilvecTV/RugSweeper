@@ -80,7 +80,7 @@ async def fetch_new_tokens():
         "TestToken",
         "TEST",
         "FakeRuggerAddress1234567890",
-        "ZsdJD9Vyo36LSbqD8DnZqH7iFG2JWa4y32Ndmkgpump",
+        "rWqaZ3KaJaiKtVEQo4nuEsxKKr2tHtoeYMf1vVveDjS",
         42.0,
         1.23,
         0.012345,
@@ -97,6 +97,7 @@ async def fetch_new_tokens():
             async for message in websocket:
                 try:
                     data = json.loads(message)
+                    
                     if (
                         isinstance(data, dict)
                         and data.get("txType") == "create"
@@ -188,7 +189,7 @@ async def sweep_callback_handler(update, context):
         except Exception as e:
             await context.application.bot.send_message(
                 chat_id=update.effective_user.id,
-                text=f"Invalid contract address: {e}",
+                text=f"Invalid contract address `{contract_address}`: {e}",
                 parse_mode="Markdown"
             )
     except Exception as e:
