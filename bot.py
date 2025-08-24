@@ -29,7 +29,6 @@ def start_pumpportal_thread():
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
  
-    # ConversationHandler pour la gestion des étapes
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start, filters=filters.ChatType.PRIVATE),
@@ -42,7 +41,11 @@ def main():
             VERIFY_TOKEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, verify_token_handler)],
             WALLET_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, wallet_choice_handler)],
         },
-        fallbacks=[CommandHandler("start", start, filters=filters.ChatType.PRIVATE)],
+        fallbacks=[
+            CommandHandler("start", start, filters=filters.ChatType.PRIVATE),
+            CommandHandler("wallet", wallet, filters=filters.ChatType.PRIVATE)
+        ],
+        allow_reentry=True,  # Permet de relancer la conversation après END
     )
     application.add_handler(conv_handler)
     application.add_handler(CallbackQueryHandler(sweep_callback_handler, pattern=r"^sweep:"))
