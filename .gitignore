@@ -1,4 +1,4 @@
 .env
 myenv
-adresses.json
-encrypted_keys.json
+data/adresses.json
+data/encrypted_keys.json

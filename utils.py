@@ -2,7 +2,7 @@ import os
 import re
 import json
 
-ADRESSES_FILE = "adresses.json"
+ADRESSES_FILE = "data/adresses.json"
 
 def load_addresses():
     if not os.path.exists(ADRESSES_FILE):

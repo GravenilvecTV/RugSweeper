@@ -3,7 +3,7 @@ from solders.keypair import Keypair
 from solana.rpc.api import Client
 from telegram import ReplyKeyboardMarkup
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 from cryptography.fernet import Fernet
 import json
 import os
@@ -19,7 +19,7 @@ from solders.transaction import Transaction
 
 WALLET_MENU = 10 
 WAIT_WITHDRAW_ADDRESS = 11
-ENCRYPTED_KEYS_FILE = "encrypted_keys.json"
+ENCRYPTED_KEYS_FILE = "data/encrypted_keys.json"
 
 def get_balance(pubkey, rpc_url="https://api.mainnet-beta.solana.com"):
     client = Client(rpc_url)
@@ -30,7 +30,8 @@ def get_balance(pubkey, rpc_url="https://api.mainnet-beta.solana.com"):
     return None
 
 wallet_keyboard = [
-    ["Create wallet", "Deposit", "Withdraw", "Balance"]
+    ["Create wallet", "Deposit", "Withdraw", "Balance"],
+    ["Close"]
 ]
 wallet_markup = ReplyKeyboardMarkup(wallet_keyboard, one_time_keyboard=True, resize_keyboard=True)
 
@@ -105,28 +106,18 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=wallet_markup
         )
         return WALLET_MENU
-    elif text == "Deposit":
+    elif text == "Deposit" or text == "Balance":
         telegram_user_id = str(update.effective_user.id)
-        # Load encrypted keys
-        if os.path.exists(ENCRYPTED_KEYS_FILE):
-            with open(ENCRYPTED_KEYS_FILE, "r") as f:
-                encrypted_keys = json.load(f)
-        else:
-            encrypted_keys = {}
-        salt = load_salt()
-        key = derive_key("", salt)
-        encrypted_privkey = encrypted_keys.get(telegram_user_id)
-        if not encrypted_privkey:
+        pubkey, privkey_base58 = get_wallet_for_user(telegram_user_id)
+        if not privkey_base58 or not pubkey:
             await update.message.reply_text("No key found for your Telegram account.")
         else:
             try:
-                privkey_base58 = decrypt_privkey(encrypted_privkey, key)
-                keypair = Keypair.from_base58_string(privkey_base58)
                 await update.message.reply_text(
-                    f"Your public address: `{keypair.pubkey()}`",
+                    f"Your public address: `{pubkey}`",
                     parse_mode="Markdown"
                 )
-                sol_balance = get_balance(keypair.pubkey())
+                sol_balance = get_balance(pubkey)
                 sol_price = get_sol_price()
                 if sol_balance is not None and sol_price is not None:
                     dollar_estimate = sol_balance * sol_price
@@ -154,49 +145,9 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=None
         )
         return WAIT_WITHDRAW_ADDRESS
-    elif text == "Balance":
-        telegram_user_id = str(update.effective_user.id)
-        # Load encrypted keys
-        if os.path.exists(ENCRYPTED_KEYS_FILE):
-            with open(ENCRYPTED_KEYS_FILE, "r") as f:
-                encrypted_keys = json.load(f)
-        else:
-            encrypted_keys = {}
-        salt = load_salt()
-        key = derive_key("", salt)
-        encrypted_privkey = encrypted_keys.get(telegram_user_id)
-        if not encrypted_privkey:
-            await update.message.reply_text("No key found for your Telegram account.")
-        else:
-            try:
-                privkey_base58 = decrypt_privkey(encrypted_privkey, key)
-                keypair = Keypair.from_base58_string(privkey_base58)
-                await update.message.reply_text(
-                    f"Your public address: `{keypair.pubkey()}`",
-                    parse_mode="Markdown"
-                )
-                sol_balance = get_balance(keypair.pubkey())
-                sol_price = get_sol_price()
-                if sol_balance is not None and sol_price is not None:
-                    dollar_estimate = sol_balance * sol_price
-                    await update.message.reply_text(
-                        f"Sol balance: {sol_balance} SOL\nEstimated value: ${dollar_estimate:.2f}",
-                        parse_mode="Markdown"
-                    )
-                elif sol_balance is not None:
-                    await update.message.reply_text(
-                        f"Sol balance: {sol_balance} SOL",
-                        parse_mode="Markdown"
-                    )
-                else:
-                    await update.message.reply_text("Unable to fetch balance.", parse_mode="Markdown")
-            except Exception as e:
-                await update.message.reply_text(f"Error decrypting your key: {e}")
-        await update.message.reply_text(
-            "Wallet options:\nPlease choose an action below.",
-            reply_markup=wallet_markup
-        )
-        return WALLET_MENU
+    elif text == "Close":
+        await update.message.reply_text("Wallet menu closed.")
+        return ConversationHandler.END
     else:
         await update.message.reply_text("Invalid option.")
     # Show wallet menu again (except if waiting for public key)
@@ -261,6 +212,25 @@ def is_valid_solana_address(address: str):
     except Exception:
         return False
 
+def get_wallet_for_user(telegram_user_id: str):
+    """
+    Returns (pubkey, privkey_base58) for the user, or (None, None) if not found.
+    Decrypts the private key and returns the public key (base58 string) and privkey_base58.
+    """
+    if not os.path.exists(ENCRYPTED_KEYS_FILE):
+        return None, None
+    with open(ENCRYPTED_KEYS_FILE, "r") as f:
+        encrypted_keys = json.load(f)
+    encrypted_privkey = encrypted_keys.get(str(telegram_user_id))
+    if not encrypted_privkey:
+        return None, None
+    try:
+        privkey_base58 = decrypt_privkey(encrypted_privkey, derive_key("", load_salt()))
+        pubkey = str(Keypair.from_base58_string(privkey_base58).pubkey())
+        return pubkey, privkey_base58
+    except Exception:
+        return None, None
+
 # Handler for the next step after user enters the withdraw address
 async def wallet_withdraw_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -276,7 +246,27 @@ async def wallet_withdraw_handler(update: Update, context: ContextTypes.DEFAULT_
         reply_markup=wallet_markup
     )
     return WALLET_MENU
-     
+def is_valid_solana_address(address: str):
+    try:
+        Pubkey.from_string(address)
+        return True
+    except Exception:
+        return False
+
+def get_wallet_for_user(telegram_user_id: str):
+    """
+    Returns (pubkey, privkey_base58) for the user, or (None, None) if not found.
+    """
+    if os.path.exists(ENCRYPTED_KEYS_FILE):
+        with open(ENCRYPTED_KEYS_FILE, "r") as f:
+            encrypted_keys = json.load(f)
+    else:
+        encrypted_keys = {}
+    encrypted_privkey = encrypted_keys.get(str(telegram_user_id))
+    if not encrypted_privkey:
+        return None, None
+    # You may want to decrypt here if needed, or just return the encrypted value
+    return None, encrypted_privkey  # pubkey is not stored, only privkey_base58 (encrypted)
 
 
 

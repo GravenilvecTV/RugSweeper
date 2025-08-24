@@ -4,31 +4,12 @@ import json
 import os
 import requests
 from dotenv import load_dotenv
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton 
+from transactions import buy_token
+import wallet
+from solders.keypair import Keypair
 
 load_dotenv()
-
-def get_all_chat_ids():
-    """Retourne la liste de tous les chat_id ayant discuté avec le bot, sauf le channel."""
-    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    channel_id = os.getenv("TELEGRAM_CHANNEL_ID")
-    url = f"https://api.telegram.org/bot{telegram_token}/getUpdates"
-    try:
-        response = requests.get(url)
-        data = response.json()
-        chat_ids = set()
-        if "result" in data:
-            for update in data["result"]:
-                message = update.get("message")
-                if message and "chat" in message and "id" in message["chat"]:
-                    chat_id = str(message["chat"]["id"])
-                    # Exclure le channel
-                    if chat_id != channel_id:
-                        chat_ids.add(chat_id)
-        return list(chat_ids)
-    except Exception as e:
-        print(f"Erreur lors de la récupération des chat_id : {e}")
-        return []
 
 def send_telegram_message(
     token_name: str,
@@ -63,8 +44,8 @@ def send_telegram_message(
 
     # Add multiple buy buttons
     keyboard = InlineKeyboardMarkup([
-
         [
+            InlineKeyboardButton("Buy 0.01 SOL", callback_data=f"sweep:{contract_address}:0.01"),
             InlineKeyboardButton("Buy 0.1 SOL", callback_data=f"sweep:{contract_address}:0.1"),
             InlineKeyboardButton("Buy 0.5 SOL", callback_data=f"sweep:{contract_address}:0.5"),
             InlineKeyboardButton("Buy 1 SOL", callback_data=f"sweep:{contract_address}:1"),
@@ -86,7 +67,7 @@ def send_telegram_message(
         print(f"Exception lors de l'envoi Telegram à {telegram_channel_id}: {e}")
 
 def load_addresses():
-    path = os.path.join(os.path.dirname(__file__), "adresses.json")
+    path = os.path.join(os.path.dirname(__file__), "data", "adresses.json")
     with open(path, "r") as f:
         return json.load(f)
 
@@ -157,20 +138,59 @@ async def sweep_callback_handler(update, context):
     await query.answer()
     try:
         _, contract_address, amount = query.data.split(":")
-        msg = (
-            f"🧹 Sweep request received!\n"
-            f"User `{update.effective_user.id}` wants to buy `{amount} SOL` of token:\n"
-            f"`{contract_address}`\n\n"
-            "Feature coming soon!"
-        )
-        print(f"[DEBUG] Sweep request: user={update.effective_user.id}, contract={contract_address}, amount={amount}")
-        telegram_channel_id = os.getenv("TELEGRAM_CHANNEL_ID")
- 
-        await context.application.bot.send_message(
-            chat_id=update.effective_user.id,
-            text=msg,
-            parse_mode="Markdown"
-        )
+        user_id = str(update.effective_user.id)
+        print(f"[DEBUG] Sweep request: user={user_id}, contract={contract_address}, amount={amount}")
+
+        # Retrieve privkey_base58 and check validity before using Keypair
+        _, privkey_base58 = wallet.get_wallet_for_user(user_id)
+        if not privkey_base58:
+            await context.application.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="No wallet found for your account.",
+                parse_mode="Markdown"
+            )
+            return
+
+        try:
+            keypair = Keypair.from_base58_string(privkey_base58)
+        except Exception as e:
+            await context.application.bot.send_message(
+                chat_id=update.effective_user.id,
+                text=f"Error loading your wallet: {e}",
+                parse_mode="Markdown"
+            )
+            return
+
+        # Validate contract_address (should be base58, no '-')
+        try:
+            # Only allow valid base58 addresses (no '-')
+            if '-' in contract_address:
+                raise ValueError("Invalid contract address format (contains '-').")
+            pubkey = str(keypair.pubkey())
+            success, result_msg = buy_token(pubkey, contract_address, keypair, float(amount))
+            if success:
+                msg = (
+                    f"🧹 Sweep request received!\n"
+                    f"User `{user_id}` will buy `{amount} SOL` of token:\n"
+                    f"`{contract_address}`\n\n"
+                    f"{result_msg}"
+                )
+            else:
+                msg = (
+                    f"❌ Sweep request failed for user `{user_id}` on token `{contract_address}`.\n"
+                    f"Reason: {result_msg}"
+                )
+            await context.application.bot.send_message(
+                chat_id=update.effective_user.id,
+                text=msg,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            await context.application.bot.send_message(
+                chat_id=update.effective_user.id,
+                text=f"Invalid contract address: {e}",
+                parse_mode="Markdown"
+            )
     except Exception as e:
         print(f"[DEBUG] Error in sweep_callback_handler: {e}")
         await context.application.bot.send_message(
@@ -190,13 +210,9 @@ if __name__ == "__main__":
     try:
         tasks = [
             fetch_new_tokens(),
-            watch_new_tokens_file()
         ]
         loop.run_until_complete(asyncio.gather(*tasks))
     except KeyboardInterrupt:
         print("Arrêt manuel du bot.")
     finally:
         loop.close()
-
-
-

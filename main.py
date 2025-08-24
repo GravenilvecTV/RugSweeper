@@ -1,8 +1,8 @@
 import base58
 from solders.keypair import Keypair
 from solana.rpc.api import Client
-from telegram import ReplyKeyboardMarkup
-from telegram import Update
+from telegram_utils import ReplyKeyboardMarkup
+from telegram_utils import Update
 from telegram.ext import ContextTypes
 from cryptography.fernet import Fernet
 import json

@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 from utils import (
-    load_addresses, load_address_counts, save_address, is_valid_solana_address, address_exists
+    load_addresses, save_address, is_valid_solana_address, address_exists
 )
 
 CHOOSING, ADD_RUG, ADD_PUMPFUN, VERIFY_TOKEN = range(4)
