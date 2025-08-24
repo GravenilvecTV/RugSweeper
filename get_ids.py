@@ -1,4 +1,4 @@
-from telegram_utils import Bot
+from telegram import Bot
 import asyncio
 import dotenv
 import os

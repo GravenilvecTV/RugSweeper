@@ -138,7 +138,7 @@ async def sweep_callback_handler(update, context):
     query = update.callback_query
     await query.answer()
     try:
-        _, contract_address, amount = query.data.split(":")
+        _, contract_address, amount = query.data.split(":") 
         user_id = str(update.effective_user.id)
         print(f"[DEBUG] Sweep request: user={user_id}, contract={contract_address}, amount={amount}")
 
@@ -168,19 +168,49 @@ async def sweep_callback_handler(update, context):
             if '-' in contract_address:
                 raise ValueError("Invalid contract address format (contains '-').")
             pubkey = str(keypair.pubkey())
-            success, result_msg = buy_token(pubkey, contract_address, keypair, float(amount))
+            success, result_msg = buy_token(pubkey, contract_address, keypair, amount)
+            # Correction: Vérification de la présence de la clé 'result' si result_msg est un dict
+            if isinstance(result_msg, dict):
+                signature = result_msg.get('result', None)
+                if not signature:
+                    signature = result_msg.get('signature', None)
+                if not signature:
+                    signature = "Signature non disponible"
+            else:
+                signature = result_msg if isinstance(result_msg, str) else "Signature non disponible"
             if success:
                 msg = (
                     f"🧹 Sweep request received!\n"
                     f"User `{user_id}` will buy `{amount} SOL` of token:\n"
                     f"`{contract_address}`\n\n"
-                    f"{result_msg}"
-                )
+                    f"Signature: `{signature}`"
+                ) 
+                
             else:
-                msg = (
-                    f"❌ Sweep request failed for user `{user_id}` on token `{contract_address}`.\n"
-                    f"Reason: {result_msg}"
-                )
+                # Ajout affichage lamports requis/disponibles si présents dans le message d'erreur
+                lamports_needed = None
+                lamports_available = None
+                if isinstance(result_msg, dict):
+                    lamports_needed = result_msg.get("lamports_needed")
+                    lamports_available = result_msg.get("lamports_available")
+                elif isinstance(result_msg, str):
+                    import re
+                    m = re.search(r"insufficient lamports (\d+), need (\d+)", result_msg)
+                    if m:
+                        lamports_available = int(m.group(1))
+                        lamports_needed = int(m.group(2))
+                if lamports_needed and lamports_available:
+                    msg = (
+                        f"❌ Sweep request failed for user `{user_id}` on token `{contract_address}`.\n"
+                        f"Reason: {result_msg}\n"
+                        f"Lamports available: `{lamports_available}`\n"
+                        f"Lamports required: `{lamports_needed}`"
+                    )
+                else:
+                    msg = (
+                        f"❌ Sweep request failed. No enought lamports ! Deposit more sol \n"
+                         
+                    )
             await context.application.bot.send_message(
                 chat_id=update.effective_user.id,
                 text=msg,
