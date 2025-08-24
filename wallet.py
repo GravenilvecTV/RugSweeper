@@ -23,6 +23,9 @@ ENCRYPTED_KEYS_FILE = "data/encrypted_keys.json"
 
 def get_balance(pubkey, rpc_url="https://api.mainnet-beta.solana.com"):
     client = Client(rpc_url)
+    # Ensure pubkey is a Pubkey object
+    if isinstance(pubkey, str):
+        pubkey = Pubkey.from_string(pubkey)
     resp = client.get_balance(pubkey)
     # resp.value is in lamports, convert to SOL
     if hasattr(resp, "value"):
@@ -109,6 +112,7 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif text == "Deposit" or text == "Balance":
         telegram_user_id = str(update.effective_user.id)
         pubkey, privkey_base58 = get_wallet_for_user(telegram_user_id)
+        print(not privkey_base58 or not pubkey)
         if not privkey_base58 or not pubkey:
             await update.message.reply_text("No key found for your Telegram account.")
         else:
@@ -141,10 +145,13 @@ async def wallet_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return WALLET_MENU
     elif text == "Withdraw":
         await update.message.reply_text(
-            "Please enter the destination wallet address to withdraw your funds:",
-            reply_markup=None
+            "How to withdraw your funds:\n\n"
+            "1. Download the Phantom wallet (browser extension or mobile app).\n"
+            "2. Import your private key (base58) shown when you created your wallet.\n"
+            "3. Make your transaction directly from Phantom.\n\n"
+            "Soon: Full withdrawal feature directly from the bot!",
+            parse_mode="Markdown"
         )
-        return WAIT_WITHDRAW_ADDRESS
     elif text == "Close":
         await update.message.reply_text("Wallet menu closed.")
         return ConversationHandler.END
@@ -231,42 +238,6 @@ def get_wallet_for_user(telegram_user_id: str):
     except Exception:
         return None, None
 
-# Handler for the next step after user enters the withdraw address
-async def wallet_withdraw_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "How to withdraw your funds:\n\n"
-        "1. Download the Phantom wallet (browser extension or mobile app).\n"
-        "2. Import your private key (base58) shown when you created your wallet.\n"
-        "3. Make your transaction directly from Phantom.\n\n"
-        "Soon: Full withdrawal feature directly from the bot!",
-        parse_mode="Markdown"
-    )
-    await update.message.reply_text(
-        "Wallet options:\nPlease choose an action below.",
-        reply_markup=wallet_markup
-    )
-    return WALLET_MENU
-def is_valid_solana_address(address: str):
-    try:
-        Pubkey.from_string(address)
-        return True
-    except Exception:
-        return False
-
-def get_wallet_for_user(telegram_user_id: str):
-    """
-    Returns (pubkey, privkey_base58) for the user, or (None, None) if not found.
-    """
-    if os.path.exists(ENCRYPTED_KEYS_FILE):
-        with open(ENCRYPTED_KEYS_FILE, "r") as f:
-            encrypted_keys = json.load(f)
-    else:
-        encrypted_keys = {}
-    encrypted_privkey = encrypted_keys.get(str(telegram_user_id))
-    if not encrypted_privkey:
-        return None, None
-    # You may want to decrypt here if needed, or just return the encrypted value
-    return None, encrypted_privkey  # pubkey is not stored, only privkey_base58 (encrypted)
 
 
 

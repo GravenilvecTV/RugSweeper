@@ -142,7 +142,7 @@ async def sweep_callback_handler(update, context):
         print(f"[DEBUG] Sweep request: user={user_id}, contract={contract_address}, amount={amount}")
 
         # Retrieve privkey_base58 and check validity before using Keypair
-        _, privkey_base58 = wallet.get_wallet_for_user(user_id)
+        pubkey, privkey_base58 = wallet.get_wallet_for_user(user_id)
         if not privkey_base58:
             await context.application.bot.send_message(
                 chat_id=update.effective_user.id,

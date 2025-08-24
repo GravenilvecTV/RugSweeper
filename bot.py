@@ -9,7 +9,7 @@ from handlers import (
     start, choice_handler, add_rug, add_pumpfun, verify_token_handler,
     CHOOSING, ADD_RUG, ADD_PUMPFUN, VERIFY_TOKEN, markup
 )
-from wallet import wallet, wallet_markup, wallet_choice_handler, wallet_withdraw_handler, WALLET_MENU, WAIT_WITHDRAW_ADDRESS
+from wallet import wallet, wallet_choice_handler, WALLET_MENU
 from pumpportal import fetch_new_tokens, sweep_callback_handler
 
 logging.basicConfig(
@@ -41,7 +41,6 @@ def main():
             ADD_PUMPFUN: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_pumpfun)],
             VERIFY_TOKEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, verify_token_handler)],
             WALLET_MENU: [MessageHandler(filters.TEXT & ~filters.COMMAND, wallet_choice_handler)],
-            WAIT_WITHDRAW_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, wallet_withdraw_handler)],
         },
         fallbacks=[CommandHandler("start", start, filters=filters.ChatType.PRIVATE)],
     )
