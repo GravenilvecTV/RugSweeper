@@ -75,17 +75,7 @@ addresses = load_addresses()
 
 async def fetch_new_tokens():
     print("Start websocket for new tokens by specific creator...")
-    # Test message with fake data
-    send_telegram_message(
-        "TestToken",
-        "TEST",
-        "FakeRuggerAddress1234567890",
-        "rWqaZ3KaJaiKtVEQo4nuEsxKKr2tHtoeYMf1vVveDjS",
-        42.0,
-        1.23,
-        0.012345,
-        "FakeSignature1234567890"
-    )
+ 
     uri = "wss://pumpportal.fun/api/data"
     try:
         async with websockets.connect(uri) as websocket:
@@ -95,6 +85,8 @@ async def fetch_new_tokens():
             await websocket.send(json.dumps(payload))
 
             async for message in websocket:
+
+                addresses = load_addresses()
                 try:
                     data = json.loads(message)
                     
