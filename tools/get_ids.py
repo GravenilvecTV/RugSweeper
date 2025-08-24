@@ -7,6 +7,9 @@ dotenv.load_dotenv()
 async def main():
     bot = Bot(token=os.getenv("TELEGRAM_BOT_TOKEN"))
     updates = await bot.get_updates()
-    print(updates[0].message.chat.id)
+    if not updates:
+        print("No updates found.")
+    else:
+        print(updates) 
 
 asyncio.run(main())

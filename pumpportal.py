@@ -29,21 +29,35 @@ def get_all_chat_ids():
         print(f"Erreur lors de la récupération des chat_id : {e}")
         return []
 
-def send_telegram_message(address: str, link: str):
+def send_telegram_message(
+    token_name: str,
+    symbol: str,
+    rugger_address: str,
+    contract_address: str,
+    market_cap_sol: float,
+    initial_buy: float,
+    sol_amount: float,
+    signature: str
+):
     """
-    Envoie un message stylisé sur Telegram à tous les chat_id connus sauf le channel.
+    Sends a detailed message to Telegram with all important token info.
     """
     telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
     telegram_channel_id = os.getenv("TELEGRAM_CHANNEL_ID")
-    # Ne rien envoyer si c'est le channel
-    if telegram_channel_id == "-1002569761588":
-        print("Message non envoyé : channel détecté.")
-        return
 
     message = (
-        "🚨 *New token from a rugger* 🚨\n\n"
-        f"Address: `{address}`\n"
-        f"[View on PumpPortal]({link})"
+        "🚨 *Rug Alert!* 🚨\n\n"
+        "🆕 *New Token Created by Registered Rugger*\n\n"
+        f"🔹 *Name*: `{token_name}`\n"
+        f"🔹 *Symbol*: `{symbol}`\n"
+        f"🔹 *Rugger Address*: `{rugger_address}`\n"
+        f"🔹 *Contract Address*: `{contract_address}`\n\n"
+        "💰 *Token Details*\n"
+        f"• Market Cap: `{market_cap_sol:.2f} SOL`\n"
+        f"• Initial Buy: `{initial_buy:.2f}`\n"
+        f"• SOL Amount: `{sol_amount:.6f}`\n"
+        f"• Signature: `{signature}`\n\n"
+        f"🔗 [View on Pump.fun](https://pump.fun/coin/{contract_address})"
     )
 
     url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
@@ -68,6 +82,17 @@ addresses = load_addresses()
 
 async def fetch_new_tokens():
     print("Start websocket for new tokens by specific creator...")
+    # Test message with fake data
+    send_telegram_message(
+        "TestToken",
+        "TEST",
+        "FakeRuggerAddress1234567890",
+        "ZsdJD9Vyo36LSbqD8DnZqH7iFG2JWa4y32Ndmkgpump",
+        42.0,
+        1.23,
+        0.012345,
+        "FakeSignature1234567890"
+    )
     uri = "wss://pumpportal.fun/api/data"
     try:
         async with websockets.connect(uri) as websocket:
@@ -84,11 +109,15 @@ async def fetch_new_tokens():
                         and data.get("txType") == "create"
                         and data.get("traderPublicKey") in addresses
                     ):
-                        msg = f"{data.get('traderPublicKey')}"
-                        print(msg)
                         send_telegram_message(
-                            data.get('traderPublicKey'),
-                            f"https://pumpportal.fun/token/{data.get('tokenAddress')}"
+                            data.get("name", ""),
+                            data.get("symbol", ""),
+                            data.get("traderPublicKey", ""),
+                            data.get("mint", ""),
+                            float(data.get("marketCapSol", 0)),
+                            float(data.get("initialBuy", 0)),
+                            float(data.get("solAmount", 0)),
+                            data.get("signature", "")
                         )
                 except Exception as e:
                     print(f"Erreur parsing event : {e}")
