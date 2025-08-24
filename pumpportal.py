@@ -193,10 +193,11 @@ async def sweep_callback_handler(update, context):
                 if not found:
                     await context.application.bot.send_message(
                         chat_id=update.effective_user.id,
-                        text=(
-                            f"❌ You must hold at least {min_amount:,} tokens of mint `{mint_to_check}` "
-                            "to use this feature."
-                        ),
+                      text=(
+    f"❌ You must hold at least {min_amount:,} tokens of mint `{mint_to_check}` "
+    "to use this feature.\n"
+    f"🔗 [Buy more $RugSweeper](https://pump.fun/coin/{mint_to_check})"
+),  
                         parse_mode="Markdown"
                     )
                     return
