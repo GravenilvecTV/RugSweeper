@@ -3,14 +3,14 @@ import os
 import asyncio
 import threading
 from dotenv import load_dotenv
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ConversationHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ConversationHandler, CallbackQueryHandler
 
 from handlers import (
     start, choice_handler, add_rug, add_pumpfun, verify_token_handler,
     CHOOSING, ADD_RUG, ADD_PUMPFUN, VERIFY_TOKEN, markup
 )
 from wallet import wallet, wallet_markup, wallet_choice_handler, wallet_withdraw_handler, WALLET_MENU, WAIT_WITHDRAW_ADDRESS
-from pumpportal import fetch_new_tokens
+from pumpportal import fetch_new_tokens, sweep_callback_handler
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -46,6 +46,7 @@ def main():
         fallbacks=[CommandHandler("start", start, filters=filters.ChatType.PRIVATE)],
     )
     application.add_handler(conv_handler)
+    application.add_handler(CallbackQueryHandler(sweep_callback_handler, pattern=r"^sweep:"))
 
     start_pumpportal_thread()
     application.run_polling()

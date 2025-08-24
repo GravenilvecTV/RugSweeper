@@ -4,6 +4,7 @@ import json
 import os
 import requests
 from dotenv import load_dotenv
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 load_dotenv()
 
@@ -60,11 +61,22 @@ def send_telegram_message(
         f"🔗 [View on Pump.fun](https://pump.fun/coin/{contract_address})"
     )
 
+    # Add multiple buy buttons
+    keyboard = InlineKeyboardMarkup([
+
+        [
+            InlineKeyboardButton("Buy 0.1 SOL", callback_data=f"sweep:{contract_address}:0.1"),
+            InlineKeyboardButton("Buy 0.5 SOL", callback_data=f"sweep:{contract_address}:0.5"),
+            InlineKeyboardButton("Buy 1 SOL", callback_data=f"sweep:{contract_address}:1"),
+        ]
+    ])
+
     url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
     payload = {
         "chat_id": telegram_channel_id,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown",
+        "reply_markup": keyboard.to_json()
     }
     try:
         response = requests.post(url, data=payload)
@@ -140,6 +152,36 @@ def create_wallet():
         print(f"Erreur lors de la création du wallet PumpPortal : {e}")
         return None, None
 
+async def sweep_callback_handler(update, context):
+    query = update.callback_query
+    await query.answer()
+    try:
+        _, contract_address, amount = query.data.split(":")
+        msg = (
+            f"🧹 Sweep request received!\n"
+            f"User `{update.effective_user.id}` wants to buy `{amount} SOL` of token:\n"
+            f"`{contract_address}`\n\n"
+            "Feature coming soon!"
+        )
+        print(f"[DEBUG] Sweep request: user={update.effective_user.id}, contract={contract_address}, amount={amount}")
+        telegram_channel_id = os.getenv("TELEGRAM_CHANNEL_ID")
+        await context.application.bot.send_message(
+            chat_id=telegram_channel_id,
+            text=msg,
+            parse_mode="Markdown"
+        )
+        await context.application.bot.send_message(
+            chat_id=update.effective_user.id,
+            text="Your sweep request has been sent to the channel.",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"[DEBUG] Error in sweep_callback_handler: {e}")
+        await context.application.bot.send_message(
+            chat_id=update.effective_user.id,
+            text=f"Error: {e}"
+        )
+ 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     try:
